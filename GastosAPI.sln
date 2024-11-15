@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35013.160
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GastosAPI", "GastosAPI\GastosAPI.csproj", "{196249D0-3B46-4E74-9895-8996487CCBC4}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Core", "Core\Core.csproj", "{43617A3E-A28A-4618-8195-1DAA2D70B463}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Infrastructure", "Infrastructure\Infrastructure.csproj", "{74D03EB9-705B-4801-890C-D5CE5AFF7155}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{196249D0-3B46-4E74-9895-8996487CCBC4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{196249D0-3B46-4E74-9895-8996487CCBC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{196249D0-3B46-4E74-9895-8996487CCBC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{196249D0-3B46-4E74-9895-8996487CCBC4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{43617A3E-A28A-4618-8195-1DAA2D70B463}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{43617A3E-A28A-4618-8195-1DAA2D70B463}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{43617A3E-A28A-4618-8195-1DAA2D70B463}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{43617A3E-A28A-4618-8195-1DAA2D70B463}.Release|Any CPU.Build.0 = Release|Any CPU
+		{74D03EB9-705B-4801-890C-D5CE5AFF7155}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{74D03EB9-705B-4801-890C-D5CE5AFF7155}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{74D03EB9-705B-4801-890C-D5CE5AFF7155}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{74D03EB9-705B-4801-890C-D5CE5AFF7155}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {44632ACD-D6FD-4B12-9741-A381590FA037}
+	EndGlobalSection
+EndGlobal
