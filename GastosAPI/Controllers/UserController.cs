@@ -24,18 +24,53 @@ public class UserController : BaseApiController
         return Ok(await _service.Add(request));
     }
 
-    [HttpPost("ChangePassword")]
-    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    //si va a enviarse el correo
+    //[HttpPost("request-password-reset")]
+    //public async Task<IActionResult> RequestPasswordReset([FromBody] PasswordResetRequestEmail request)
+    //{
+    //    try
+    //    {
+    //        await _service.RequestPasswordResetAsync(request.Email);
+    //        return Ok("Correo de restablecimiento de contraseña enviado.");
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        return BadRequest(ex.Message);
+    //    }
+    //}
+
+    [HttpPost("request-password-reset")]
+    public async Task<IActionResult> RequestPasswordReset([FromBody] PasswordResetRequestEmail request)
     {
-        var result = await _service.ChangePassword(request.UserId, request.CurrentPassword, request.NewPassword);
-
-        if (!result)
+        try
         {
-            throw new BusinessLogicException("La contraseña actual es incorrecta");
-        }
+            // Llamar al servicio que maneja la solicitud de restablecimiento de contraseña
+            var token = await _service.RequestPasswordResetAsync(request.Email);
 
-        return Ok("Contraseña cambiada exitosamente.");
+            // En lugar de enviar un correo, devolver el token como respuesta para pruebas
+            return Ok(new { Token = token });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
+
+    [HttpPut("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        try
+        {
+            // Llamar al servicio para cambiar la contraseña
+            await _service.ChangePasswordAsync(request.Token, request.NewPassword);
+            return Ok("Contraseña actualizada con éxito.");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message); // Devuelve el error si ocurre alguna excepción
+        }
+    }
+
 
     [HttpPut]
     public async Task<IActionResult> Update([FromBody] UpdateUserRequest request)

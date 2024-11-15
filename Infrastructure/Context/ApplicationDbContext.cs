@@ -14,8 +14,9 @@ public partial class ApplicationDbContext :DbContext
 {
     public DbSet<User> Users { get; set; }
     public DbSet<Category> Categories { get; set; }
-
     public DbSet<Expense> Expenses { get; set; }
+    public DbSet<PasswordResetToken> Tokens { get; set; }
+
     public ApplicationDbContext()
     {
     }
@@ -28,6 +29,7 @@ public partial class ApplicationDbContext :DbContext
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new CategoryConfiguration());
         modelBuilder.ApplyConfiguration(new ExpenseConfiguration());
+        modelBuilder.ApplyConfiguration(new TokenConfiguration());
 
 
     }

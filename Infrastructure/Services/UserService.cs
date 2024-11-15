@@ -16,12 +16,14 @@ public class UserService : IUserService
 {
     private readonly IUserRepository _userRepository;
     private readonly IConfiguration _configuration;
+    private readonly IEmailService _emailService;
 
 
-    public UserService(IUserRepository userRepository, IConfiguration configuration)
+    public UserService(IUserRepository userRepository, IConfiguration configuration, IEmailService emailService)
     {
         _userRepository = userRepository;
         _configuration = configuration;
+        _emailService = emailService;
 
     }
 
@@ -36,14 +38,34 @@ public class UserService : IUserService
 
         return await _userRepository.Add(request);
     }
-
-    public async Task<bool> ChangePassword(int userId, string currentPassword, string newPassword)
+    public async Task<string> RequestPasswordResetAsync(string email)
     {
-        // Obtener el usuario por ID
-        var user = await _userRepository.GetUserById(userId);
-        if (user == null)
-            throw new Exception("No se encontró un usuario con el ID ingresado.");
+        // Verificar si el correo existe en la base de datos
+        var userExists = await _userRepository.ExistsByEmail(email);
+        if (!userExists)
+        {
+            throw new Exception("El correo no está registrado.");
+        }
 
+        // Verificar si el correo ya tiene un token activo no expirado
+        var existingToken = await _userRepository.GetActivePasswordResetTokenAsync(email);
+        if (existingToken != null && existingToken.ExpirationDate > DateTime.UtcNow)
+        {
+            throw new Exception("Ya existe una solicitud de restablecimiento de contraseña activa para este correo.");
+        }
+
+        // Generar un token único para el restablecimiento
+        var token = Guid.NewGuid().ToString();
+
+        // Guardar el token en la base de datos con fecha de expiración
+        await _userRepository.SavePasswordResetTokenAsync(email, token);
+
+        // Aquí, en lugar de enviar el correo, simplemente devolvemos el token para pruebas
+        return token;
+    }
+
+    public async Task ChangePasswordAsync(string token, string newPassword)
+    {
         var validator = new InlineValidator<string>();
         validator.RuleFor(password => password)
             .NotEmpty().WithMessage("La contraseña es obligatoria.")
@@ -61,17 +83,19 @@ public class UserService : IUserService
             throw new ValidationException(validationResult.Errors);
         }
 
-       
-        // Verificar si la contraseña actual coincide
-        var encryptedCurrentPassword = Encrypt.GetSHA256(currentPassword);
-        if (user.Password != encryptedCurrentPassword) return false;
-
-        // Encriptar la nueva contraseña
         var encryptedNewPassword = Encrypt.GetSHA256(newPassword);
 
-        // Actualizar la contraseña en el repositorio
-        return await _userRepository.ChangePassword(userId, encryptedNewPassword);
+        // Llamar al repositorio para actualizar la contraseña
+        var passwordUpdated = await _userRepository.UpdatePasswordAsync(token, encryptedNewPassword);
+
+        if (!passwordUpdated)
+        {
+            throw new Exception("Error al actualizar la contraseña.");
+        }
+
+        await _userRepository.InvalidatePasswordResetTokenAsync(token);
     }
+
 
     public async Task<UserDTO> Update(UpdateUserRequest request)
     {

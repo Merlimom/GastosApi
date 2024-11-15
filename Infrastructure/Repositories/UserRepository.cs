@@ -1,4 +1,5 @@
 ﻿using Core.DTOs;
+using Core.Encrypt;
 using Core.Entities;
 using Core.Exceptions;
 using Core.Requests;
@@ -28,20 +29,6 @@ public class UserRepository : IUserRepository
 
         return userDTO;
     }
-
-    public async Task<bool> ChangePassword(int userId, string hashedNewPassword)
-    {
-            var user = await _context.Users.FindAsync(userId);
-            if (user is null) throw new Exception("User was not found");
-
-            user.Password = hashedNewPassword;
-            user.UpdateDate = DateTime.UtcNow;
-
-            _context.Users.Update(user);
-            await _context.SaveChangesAsync();
-            return true;
-    
-    }
     public async Task<UserDTO> Update(UpdateUserRequest request)
     {
         var user = await _context.Users.FindAsync(request.Id);
@@ -67,6 +54,54 @@ public class UserRepository : IUserRepository
         return userDTO;
     }
 
+    public async Task SavePasswordResetTokenAsync(string email, string token)
+    {
+        var expirationDate = DateTime.UtcNow.AddMinutes(10); // El token expirará en 1 hora
+
+        var resetToken = new PasswordResetToken
+        {
+            Email = email,
+            Token = token,
+            ExpirationDate = expirationDate
+        };
+
+        _context.Tokens.Add(resetToken);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<bool> UpdatePasswordAsync(string token, string newPassword)
+    {
+        // 1. Buscar el token activo y no utilizado en la base de datos
+        var resetToken = await _context.Tokens
+            .FirstOrDefaultAsync(t => t.Token == token && t.ExpirationDate > DateTime.UtcNow && !t.IsUsed);
+
+        if (resetToken == null)
+        {
+            return false;
+        }
+        // 2. Obtener el usuario asociado al correo electrónico del token
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == resetToken.Email);
+
+        if (user == null)
+        {
+            // No se encuentra el usuario, no hay nada que actualizar
+            return false;
+        }
+
+        // 3. Encriptar la nueva contraseña (asumimos que 'Encrypt.GetSHA256' es tu lógica de encriptado)
+        user.Password = Encrypt.GetSHA256(newPassword);
+
+        // 4. Actualizar la contraseña del usuario en la base de datos
+        _context.Users.Update(user);
+        await _context.SaveChangesAsync();
+
+        // 5. Invalidar el token después de haberlo usado
+        await InvalidatePasswordResetTokenAsync(token);
+
+        return true;
+    }
+
     public async Task<User?> GetUserById(int userId)
     {
         return await _context.Users.FindAsync(userId);
@@ -89,14 +124,25 @@ public class UserRepository : IUserRepository
         return entity;
     }
 
+    public async Task<PasswordResetToken?> GetActivePasswordResetTokenAsync(string email)
+    {
+        // Buscar un token activo y no usado para el correo
+        return await _context.Tokens
+                             .Where(t => t.Email == email && t.ExpirationDate > DateTime.UtcNow && !t.IsUsed)
+                             .FirstOrDefaultAsync();
+    }
 
-    //public async Task<UserDTO> VerifyExists(int id)
-    //{
-    //    var entity = await _context.Users.FindAsync(id);
+    public async Task InvalidatePasswordResetTokenAsync(string token)
+    {
+        var resetToken = await _context.Tokens
+                                       .FirstOrDefaultAsync(t => t.Token == token);
 
-    //    if (entity is null) throw new BusinessLogicException($"User with id: {id} doest not exist");
-
-    //    return entity.Adapt<UserDTO>();
-    //}
+        if (resetToken != null)
+        {
+            resetToken.IsUsed = true; // Marcamos el token como usado
+            _context.Tokens.Update(resetToken);
+            await _context.SaveChangesAsync();
+        }
+    }
 
 }

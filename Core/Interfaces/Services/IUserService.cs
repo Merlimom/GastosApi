@@ -13,7 +13,7 @@ public interface IUserService
 {
     Task<UserDTO> Add(CreateUserRequest request);
     Task<UserDTO> Update(UpdateUserRequest request);
-    Task<bool> ChangePassword(int userId, string currentPassword, string newPassword);
     Task<string> Login(LoginRequest request);
-
+    Task<string> RequestPasswordResetAsync(string email);
+    Task ChangePasswordAsync(string token, string newPassword);
 }
