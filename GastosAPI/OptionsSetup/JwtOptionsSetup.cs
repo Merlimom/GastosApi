@@ -14,5 +14,7 @@ public class JwtOptionsSetup : IConfigureOptions<JwtOptions>
     public void Configure(JwtOptions options)
     {
         _configuration.GetSection("Jwt").Bind(options);
+        _configuration.GetSection("ForgotPasswordJwt").Bind(options);
+
     }
 }

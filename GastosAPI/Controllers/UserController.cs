@@ -2,6 +2,7 @@
 using Core.Interfaces.Services;
 using Core.Requests;
 using Infrastructure.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
@@ -12,13 +13,25 @@ namespace GastosAPI.Controllers;
 public class UserController : BaseApiController
 {
     private readonly IUserService _service;
+    private readonly IJwtProvider _jwtProvider;
 
-    public UserController(IUserService service)
+    public UserController(IUserService service, IJwtProvider jwtProvider)
     {
         _service = service;
+        _jwtProvider = jwtProvider;
     }
 
+    //[HttpGet("generate-token")]
+    //[AllowAnonymous]
+    //public IActionResult Generate()
+    //{
+
+    //    string token = _jwtProvider.Generate();
+    //    return Ok(token);
+    //}
+
     [HttpPost]
+    [Authorize]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
         return Ok(await _service.Add(request));

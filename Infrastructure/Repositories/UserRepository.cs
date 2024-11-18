@@ -33,25 +33,18 @@ public class UserRepository : IUserRepository
     }
     public async Task<UserDTO> Update(UpdateUserRequest request)
     {
-        var user = await _context.Users.FindAsync(request.Id);
+        var userToUpdate = await _context.Users.FindAsync(request.Id);
 
-        if (user is null) throw new Exception("User was not found");
+        if (userToUpdate is null) throw new Exception("El usuario especificado no existe");
 
-        user.Name = request.Username ?? user.Name;
-
-        user.IsBlocked = request.IsBlocked ?? false;  // Si no es nulo, usa el valor de request.IsBlocked, de lo contrario, asigna false
-        user.IsDeleted = request.IsDeleted ?? false;
-        user.UpdateDate = DateTime.UtcNow;
+        userToUpdate.Name = request.Username;
+        userToUpdate.IsBlocked = request.IsBlocked;
+        userToUpdate.UpdateDate = DateTime.UtcNow;
 
 
-        // Actualizamos la entidad en el contexto
-        _context.Users.Update(user);
-
-        // Guardamos los cambios en la base de datos
+        _context.Users.Update(userToUpdate);
         await _context.SaveChangesAsync();
-
-        // Mapear el usuario actualizado a DTO
-        var userDTO = user.Adapt<UserDTO>();
+        var userDTO = userToUpdate.Adapt<UserDTO>();
 
         return userDTO;
     }
