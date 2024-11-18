@@ -1,6 +1,7 @@
 ﻿using Core.Interfaces.Services;
 using Core.Requests;
 using FluentValidation;
+using GastosAPI.OptionsSetup;
 using Infrastructure.Context;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
@@ -36,6 +37,7 @@ public static class DependencyInjection
 
     public static IServiceCollection AddServices(this IServiceCollection services)
     {
+
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IEmailService, EmailService>();
 

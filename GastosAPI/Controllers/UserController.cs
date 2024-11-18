@@ -47,7 +47,7 @@ public class UserController : BaseApiController
             // Llamar al servicio que maneja la solicitud de restablecimiento de contraseña
             var token = await _service.RequestPasswordResetAsync(request.Email);
 
-            // En lugar de enviar un correo, devolver el token como respuesta para pruebas
+            // Devolver el token JWT como respuesta para pruebas (en lugar de enviar el correo)
             return Ok(new { Token = token });
         }
         catch (Exception ex)
@@ -55,6 +55,7 @@ public class UserController : BaseApiController
             return BadRequest(ex.Message);
         }
     }
+
 
     [HttpPut("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
@@ -69,6 +70,7 @@ public class UserController : BaseApiController
         {
             return BadRequest(ex.Message); // Devuelve el error si ocurre alguna excepción
         }
+        //Console.WriteLine($"http//localsk:api/user/change-password/{token}");
     }
 
 

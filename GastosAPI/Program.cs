@@ -2,6 +2,7 @@ using Infrastructure;
 
 using GastosAPI.Middlewares;
 using GastosAPI;
+using GastosAPI.OptionsSetup;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,7 @@ builder.Services.AddWebApi(builder.Configuration);
 
 
 var app = builder.Build();
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

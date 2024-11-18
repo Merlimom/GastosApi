@@ -11,8 +11,8 @@ public interface IUserRepository
     Task<bool> ExistsByEmail(string email);
     Task<User?> GetUserByEmail(string email);
     Task<User?> GetUserById(int userId);//investigar pq usa user? 
-    Task SavePasswordResetTokenAsync(string email, string token);
-    Task<PasswordResetToken?> GetActivePasswordResetTokenAsync(string email);
+    Task SavePasswordResetTokenAsync(string token);
+    Task<PasswordResetToken?> GetPasswordResetTokenAsync(string token);
     Task InvalidatePasswordResetTokenAsync(string token);
-    Task<bool> UpdatePasswordAsync(string token, string newPassword);
+    Task<bool> UpdatePasswordAsync(int userId, string newPassword);
 }

@@ -1,10 +1,13 @@
 ﻿using Core.DTOs;
 using Core.Encrypt;
+using Core.Exceptions;
 using Core.Interfaces.Services;
 using Core.Requests;
 using FluentValidation;
+using GastosAPI.OptionsSetup;
 using Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -16,22 +19,22 @@ public class UserService : IUserService
 {
     private readonly IUserRepository _userRepository;
     private readonly IConfiguration _configuration;
-    private readonly IEmailService _emailService;
+    private readonly JwtOptions _jwtOptions;
 
 
-    public UserService(IUserRepository userRepository, IConfiguration configuration, IEmailService emailService)
+
+    public UserService(IUserRepository userRepository, IConfiguration configuration, IOptions<JwtOptions> jwtOptions)
     {
         _userRepository = userRepository;
         _configuration = configuration;
-        _emailService = emailService;
-
+        _jwtOptions = jwtOptions.Value;
     }
 
     public async Task<UserDTO> Add(CreateUserRequest request)
     {
         if (await _userRepository.ExistsByEmail(request.Email))
         {
-            throw new Exception("Ya existe un usuario con ese correo electrónico.");
+            throw new BusinessLogicException("Ya existe un usuario con ese correo electrónico.");
         }
 
         request.Password = Encrypt.GetSHA256(request.Password);
@@ -40,60 +43,124 @@ public class UserService : IUserService
     }
     public async Task<string> RequestPasswordResetAsync(string email)
     {
-        // Verificar si el correo existe en la base de datos
-        var userExists = await _userRepository.ExistsByEmail(email);
-        if (!userExists)
+        // verificar si el correo existe en la base de datos
+        var user = await _userRepository.GetUserByEmail(email);
+        if (user == null)
         {
-            throw new Exception("El correo no está registrado.");
+            throw new NotFoundException("El correo no está registrado.");
         }
 
-        // Verificar si el correo ya tiene un token activo no expirado
-        var existingToken = await _userRepository.GetActivePasswordResetTokenAsync(email);
-        if (existingToken != null && existingToken.ExpirationDate > DateTime.UtcNow)
-        {
-            throw new Exception("Ya existe una solicitud de restablecimiento de contraseña activa para este correo.");
-        }
+        // generar un jwt para el restablecimiento de contraseña
+        var token = GeneratePasswordResetJwtToken(user.Email, user.Id);
 
-        // Generar un token único para el restablecimiento
-        var token = Guid.NewGuid().ToString();
+        // guardar el token en la base de datos con fecha de expiración
+        await _userRepository.SavePasswordResetTokenAsync(token);
 
-        // Guardar el token en la base de datos con fecha de expiración
-        await _userRepository.SavePasswordResetTokenAsync(email, token);
-
-        // Aquí, en lugar de enviar el correo, simplemente devolvemos el token para pruebas
+        // devolver el token generado (en lugar de enviar un correo, por ahora devolvemos el token para pruebas)
         return token;
     }
 
+    private string GeneratePasswordResetJwtToken(string email, int userId)
+    {
+        var claims = new[]
+        {
+        new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+        new Claim(ClaimTypes.Name, email),
+    };
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Secret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var expiration = DateTime.UtcNow.AddMinutes(10); // Expiración del token a 10 minutos
+
+        var token = new JwtSecurityToken(
+            issuer: _jwtOptions.Issuer,
+            audience: _jwtOptions.Audience,
+            claims: claims,
+            expires: expiration,
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
     public async Task ChangePasswordAsync(string token, string newPassword)
     {
-        var validator = new InlineValidator<string>();
-        validator.RuleFor(password => password)
-            .NotEmpty().WithMessage("La contraseña es obligatoria.")
-            .MinimumLength(8).WithMessage("La contraseña debe tener al menos 8 caracteres.")
-            .Matches("[A-Z]").WithMessage("La contraseña debe contener al menos una letra mayúscula.")
-            .Matches("[a-z]").WithMessage("La contraseña debe contener al menos una letra minúscula.")
-            .Matches("[0-9]").WithMessage("La contraseña debe contener al menos un número.")
-            .Matches("[^a-zA-Z0-9]").WithMessage("La contraseña debe contener al menos un carácter especial.");
-
-        // Validar la nueva contraseña
-        var validationResult = await validator.ValidateAsync(newPassword);
-
-        if (!validationResult.IsValid)
+        try
         {
-            throw new ValidationException(validationResult.Errors);
+            // Validar el token JWT y extraer el UserId
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Secret"]);
+
+            SecurityToken validatedToken;
+            var principal = tokenHandler.ValidateToken(token, new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = _configuration["Jwt:Issuer"],
+                ValidateAudience = true,
+                ValidAudience = _configuration["Jwt:Audience"],
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero // Elimina el desfase de tiempo en la validación
+            }, out validatedToken);
+
+            var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null)
+            {
+                throw new BusinessLogicException("Token inválido o no contiene un identificador de usuario.");
+            }
+
+            if (!int.TryParse(userIdClaim.Value, out var userId))
+            {
+                throw new BusinessLogicException("El identificador de usuario en el token no es válido.");
+            }
+
+            // Verificar si el token ya ha sido usado
+            var resetToken = await _userRepository.GetPasswordResetTokenAsync(token);
+            if (resetToken != null && resetToken.IsUsed)
+            {
+                throw new BusinessLogicException("Este token ya ha sido utilizado para restablecer la contraseña.");
+            }
+
+            // Validar la nueva contraseña
+            var validator = new InlineValidator<string>();
+            validator.RuleFor(password => password)
+                .NotEmpty().WithMessage("La contraseña es obligatoria.")
+                .MinimumLength(8).WithMessage("La contraseña debe tener al menos 8 caracteres.")
+                .Matches("[A-Z]").WithMessage("La contraseña debe contener al menos una letra mayúscula.")
+                .Matches("[a-z]").WithMessage("La contraseña debe contener al menos una letra minúscula.")
+                .Matches("[0-9]").WithMessage("La contraseña debe contener al menos un número.")
+                .Matches("[^a-zA-Z0-9]").WithMessage("La contraseña debe contener al menos un carácter especial.");
+
+            var validationResult = await validator.ValidateAsync(newPassword);
+
+            if (!validationResult.IsValid)
+            {
+                throw new ValidationException(validationResult.Errors);
+            }
+
+            // Encriptar la nueva contraseña y actualizarla en la base de datos
+            var encryptedNewPassword = Encrypt.GetSHA256(newPassword);
+            var passwordUpdated = await _userRepository.UpdatePasswordAsync(userId, encryptedNewPassword);
+
+            if (!passwordUpdated)
+            {
+                throw new BusinessLogicException("Error al actualizar la contraseña.");
+            }
+
+            // Invalidar el token después de usarlo
+            await _userRepository.InvalidatePasswordResetTokenAsync(token);
         }
-
-        var encryptedNewPassword = Encrypt.GetSHA256(newPassword);
-
-        // Llamar al repositorio para actualizar la contraseña
-        var passwordUpdated = await _userRepository.UpdatePasswordAsync(token, encryptedNewPassword);
-
-        if (!passwordUpdated)
+        catch (SecurityTokenExpiredException ex)
         {
-            throw new Exception("Error al actualizar la contraseña.");
+            // Captura específica cuando el token ha expirado
+            throw new BusinessLogicException("El token de restablecimiento de contraseña ha expirado. Por favor, solicite un nuevo restablecimiento.");
         }
-
-        await _userRepository.InvalidatePasswordResetTokenAsync(token);
+        catch (Exception ex)
+        {
+            // Manejo de otros errores
+            throw new BusinessLogicException($"Error al cambiar la contraseña: {ex.Message}");
+        }
     }
 
 
@@ -109,13 +176,13 @@ public class UserService : IUserService
         var user = await _userRepository.GetUserByEmail(request.Email);
 
         if (user == null)
-            throw new Exception("Usuario o contraseña incorrectos.");
+            throw new BusinessLogicException("Usuario o contraseña incorrectos.");
 
         // Validar la contraseña (supongamos que está cifrada)
         var encryptedPassword = Encrypt.GetSHA256(request.Password);
 
         if (user.Password != encryptedPassword)
-            throw new Exception("Usuario o contraseña incorrectos.");
+            throw new BusinessLogicException("Usuario o contraseña incorrectos.");
 
         // Crear el token JWT
         var tokenHandler = new JwtSecurityTokenHandler();

@@ -1,8 +1,6 @@
 ﻿using FluentValidation.AspNetCore;
 using FluentValidation;
 using System.Reflection;
-using Core.Requests;
-using GastosAPI.Validations;
 using GastosAPI.OptionsSetup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
