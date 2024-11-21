@@ -1,4 +1,5 @@
-﻿using Core.Interfaces.Services;
+﻿using Core.Interfaces.Repositories;
+using Core.Interfaces.Services;
 using Core.Requests;
 using FluentValidation;
 using GastosAPI.OptionsSetup;
@@ -31,6 +32,8 @@ public static class DependencyInjection
     public static IServiceCollection AddRepositories(this IServiceCollection services)
     {
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+
 
         return services;
     }
@@ -40,6 +43,8 @@ public static class DependencyInjection
         services.AddScoped<IJwtProvider, JwtProvider>();
 
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<ICategoryService, CategoryService>();
+
         services.AddScoped<IEmailService, EmailService>();
 
 

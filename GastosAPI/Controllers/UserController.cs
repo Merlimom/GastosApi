@@ -28,7 +28,7 @@ public class UserController : BaseApiController
 
     //    string token = _jwtProvider.Generate();
     //    return Ok(token);
-    //}
+    //} 
 
     [HttpPost]
     [Authorize]
